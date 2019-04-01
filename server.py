@@ -15,6 +15,13 @@ mqtt = Mqtt(app)
 
 # === MOCK DATABASE ====
 bathroom_queue = ["Anders", "Stian"]
+users = {
+    "Anders": "123",
+    "Stian": "password1",
+    "Dennis": "hunter2",
+    "Miriam": "sol",
+    "Aleksander": "pizza"
+}
 
 
 # === REST API ===
@@ -23,18 +30,22 @@ def index():
     return "<a href='/api/queue'>Check queue</a> "
 
 
-@app.route('/api/queue')
 def get_queue():
-    return json.dumps(bathroom_queue)
+    mqtt.publish("client", json.dumps(bathroom_queue))
 
 
-@app.route('/api/queue/add/<user>')
+def login(username, password):
+    if password == users[username]:
+        mqtt.publish("client", json.dumps("Login successful!"))
+    else:
+        mqtt.publish("client", json.dumps("wrong username or password"))
+
+
 def add_user_to_queue(user):
     bathroom_queue.append(user)
-    return json.dumps(bathroom_queue)
+    get_queue()
 
 
-@app.route('/api/queue/remove/<user>')
 def remove_user_from_queue(user):
     bathroom_queue.remove(user)
     return json.dumps(bathroom_queue)
@@ -42,20 +53,24 @@ def remove_user_from_queue(user):
 
 @mqtt.on_connect()
 def handle_connect(client, userdata, flags, rc):
+    mqtt.subscribe('queue/#')
     mqtt.subscribe('queue')
     mqtt.subscribe('status')
+    mqtt.subscribe('login')
     print('client connected')
 
 
 @mqtt.on_message()
 def handle_mqtt_message(client, userdata, message):
-    data = dict(
-        topic=message.topic,
-        payload=message.payload.decode()
-    )
-    print(data)
-    if data["topic"] == "queue":
-        print(get_queue())
+    topic = message.topic
+    payload = message.payload.decode()
+    if topic == "queue":
+        get_queue()
+    elif topic == "queue/add":
+        add_user_to_queue(payload)
+    elif topic == "login":
+        credentials = payload.split(":")
+        login(credentials[0], credentials[1])
 
 
 if __name__ == '__main__':
