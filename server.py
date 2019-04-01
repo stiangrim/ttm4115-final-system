@@ -5,9 +5,11 @@ import json
 app = Flask(__name__)
 api = Api(app)
 
+# === MOCK DATABASE ====
 bathroom_queue = ["Anders", "Stian"]
 
 
+# === REST API ===
 @app.route('/')
 def index():
     return "<a href='/api/queue'>Check queue</a> "
